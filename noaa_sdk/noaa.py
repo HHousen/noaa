@@ -4,83 +4,15 @@ API Wrapper for NOAA API V3
 For more detailed information about NOAA API,
 visit: https://www.weather.gov/documentation/services-web-api
 
-Geoencoding is made possible by Open Street Map (© OpenStreetMap contributors)
-For copyright information, visit: https://www.openstreetmap.org/copyright
-
 
 """
 
 import json
 from urllib.parse import urlencode
+import pgeocode
 
 from noaa_sdk.util import UTIL
 from noaa_sdk.accept import ACCEPT
-
-
-class OSM(UTIL):
-    """
-    Make request to Open Street Map nominatim Api.
-    ==============================================
-    © OpenStreetMap contributors
-
-    Open Street Map, you guys are awesome, don't block me please.
-    """
-
-    OSM_ENDPOINT = 'nominatim.openstreetmap.org'
-
-    def __init__(self, show_uri=False):
-        """Constructor.
-        """
-        self._user_agent = 'pypi noaa_sdk'
-        self._accept = ACCEPT.JSON
-        super().__init__(
-            user_agent=self._user_agent, accept=ACCEPT.JSON,
-            show_uri=show_uri)
-
-    def get_lat_lon_by_postalcode_country(self, postalcode, country):
-        """Get latitude and longitude coordinate from postalcode
-        and country code.
-
-        Args:
-            postalcode (str): postal code.
-            country (str): 2 letter country code.
-        Returns:
-            tuple: tuple of latitude and longitude.
-        """
-
-        res = self.make_get_request(
-            '/search?postalcode={}&country={}&format=json'.format(
-                postalcode, country), end_point=self.OSM_ENDPOINT)
-        if len(res) == 0 or 'lat' not in res[0] or 'lon' not in res[0]:
-            raise Exception(
-                'Postalcode and Country: {}, {} does not exist.'.format(
-                    postalcode, country))
-        return float(res[0]['lat']), float(res[0]['lon'])
-
-    def get_postalcode_country_by_lan_lon(self, lat, lon):
-        """Get postalcode and country code by latitude and longitude.
-
-        Args:
-            lat (float): latitude.
-            lon (float): longitude.
-        Returns:
-            tuple: tuple of postalcode and country code.
-        """
-        res = self.make_get_request(
-            '/reverse?lat={}&lon={}&addressdetails=1&format=json'.format(
-                lat, lon),
-            end_point=self.OSM_ENDPOINT)
-        if 'address' not in res:
-            raise Exception('No address found.')
-
-        if 'country_code' not in res['address']:
-            raise Exception('No country code found.')
-
-        if 'postcode' not in res['address']:
-            raise Exception('No postal code found.')
-
-        return res['address']['postcode'], res['address']['country_code']
-
 
 class NOAA(UTIL):
     """Main class for getting data from NOAA."""
@@ -105,14 +37,14 @@ class NOAA(UTIL):
         super().__init__(
             user_agent=user_agent, accept=accept,
             show_uri=show_uri)
-        self._osm = OSM()
 
-    def get_forecasts(self, postal_code, country, hourly=True):
+    def get_lat_lon_by_postalcode_country(self, postal_code, country):
+        nomi = pgeocode.Nominatim(country)
+        query_results = nomi.query_postal_code(postal_code)
+        return query_results.latitude, query_results.longitude
+
+    def get_forecasts(self, postal_code, country, data_type="grid"):
         """Get forecasts by postal code and country code.
-
-           This is an extensive functionality, aligning data
-           from Open Street Map to enable postal code and country code
-           params for weather forecast data.
 
         Args:
             postalcode (str): postal code.
@@ -122,9 +54,8 @@ class NOAA(UTIL):
             list: list of weather forecasts.
         """
 
-        lat, lon = self._osm.get_lat_lon_by_postalcode_country(
-            postal_code, country)
-        res = self.points_forecast(lat, lon, hourly)
+        lat, lon = self.get_lat_lon_by_postalcode_country(postal_code, country)
+        res = self.points_forecast(lat, lon, data_type=data_type)
 
         if 'status' in res and res['status'] == 503 and 'detail' in res:
             raise Exception('Status: {}, NOAA API Error Response: {}'.format(
@@ -132,10 +63,13 @@ class NOAA(UTIL):
         elif 'properties' not in res:
             raise Exception(
                 '"properties" attribute not found. Possible response json changes')
-        elif 'properties' in res and 'periods' not in res['properties']:
+        elif 'properties' in res and 'periods' not in res['properties'] and data_type != "grid":
             raise Exception(
                 '"periods" attribute not found. Possible response json changes')
-        return res['properties']['periods']
+        if data_type == "grid":
+            return res['properties']
+        else:
+            return res['properties']['periods']
 
     def get_observations(
             self, postalcode, country, start=None, end=None, num_of_stations=1):
@@ -167,7 +101,7 @@ class NOAA(UTIL):
             'heatIndex', 'windSpeed', 'elevation'
         """
 
-        lat, lon = self._osm.get_lat_lon_by_postalcode_country(
+        lat, lon = self.get_lat_lon_by_postalcode_country(
             postalcode, country)
         
         return self.get_observations_by_lat_lon(lat, lon, start, end, num_of_stations)
@@ -235,7 +169,7 @@ class NOAA(UTIL):
             "/points/{point}".format(point=point),
             end_point=self.DEFAULT_END_POINT)
 
-    def points_forecast(self, lat, long, hourly=False):
+    def points_forecast(self, lat, long, data_type=None):
         """Get observation data from a weather station.
 
         Response in this method should not be modified.
@@ -249,13 +183,17 @@ class NOAA(UTIL):
         Returns:
             json: json response from api.
         """
+        assert data_type in ["hourly", "grid"]
 
         points = self.make_get_request(
             "/points/{lat},{long}".format(
                 lat=lat, long=long), end_point=self.DEFAULT_END_POINT)
         uri = points['properties']['forecast']
-        if hourly:
+        
+        if data_type == "hourly":
             uri = points['properties']['forecastHourly']
+        elif data_type == "grid":
+            uri = points['properties']['forecastGridData']
 
         return self.make_get_request(
             uri=uri, end_point=self.DEFAULT_END_POINT)

@@ -111,7 +111,7 @@ def test_points_forecast(mock_make_get_request):
         }
     }
     n = noaa.NOAA(user_agent='test_agent')
-    n.points_forecast(23.44, 34.55, hourly=False)
+    n.points_forecast(23.44, 34.55, data_type=None)
     mock_make_get_request.assert_any_call(
         uri='forecast_uri', end_point=n.DEFAULT_END_POINT)
 
@@ -125,7 +125,7 @@ def test_points_forecast_with_hourly(mock_make_get_request):
         }
     }
     n = noaa.NOAA(user_agent='test_agent')
-    n.points_forecast(23.44, 34.55, hourly=True)
+    n.points_forecast(23.44, 34.55, data_type="hourly")
     mock_make_get_request.assert_any_call(
         uri='forecast_hourly_uri', end_point=n.DEFAULT_END_POINT)
 
@@ -337,54 +337,3 @@ def test_active_alerts_with_region(mock_make_get_request):
     n.active_alerts(region='test_region')
     mock_make_get_request.assert_called_with(
         '/alerts/active/region/test_region', end_point=n.DEFAULT_END_POINT)
-
-
-@patch('noaa_sdk.noaa.OSM.make_get_request')
-def test_osm_get_lat_lon_by_postalcode_country(mock_make_get_request):
-    mock_make_get_request.return_value = [{'lat': 56.34, 'lon': 12.78}]
-    n = noaa.OSM()
-    lat, lon = n.get_lat_lon_by_postalcode_country('11365', 'US')
-    mock_make_get_request.assert_called_with(
-        '/search?postalcode=11365&country=US&format=json',
-        end_point=n.OSM_ENDPOINT)
-    assert lat == 56.34
-    assert lon == 12.78
-
-
-@patch('noaa_sdk.noaa.OSM.make_get_request')
-def test_osm_get_lat_lon_by_postalcode_country_failed(mock_make_get_request):
-    mock_make_get_request.return_value = []
-    with pytest.raises(Exception) as err:
-        n = noaa.OSM()
-        n.get_lat_lon_by_postalcode_country('11365', 'US')
-        mock_make_get_request.assert_called_with(
-            '/search?postalcode=11365&country=US&format=json',
-            end_point=n.OSM_ENDPOINT)
-        assert err == 'No response from: {}'.format(n.OSM_ENDPOINT)
-
-
-@patch('noaa_sdk.noaa.OSM.make_get_request')
-def test_osm_get_postalcode_country_by_lan_lon(mock_make_get_request):
-    mock_make_get_request.return_value = {
-        'address': {
-            'postcode': '11375', 'country_code': 'US'}
-    }
-    n = noaa.OSM()
-    postcode, country = n.get_postalcode_country_by_lan_lon(23.22, 33.33)
-    mock_make_get_request.assert_called_with(
-        '/reverse?lat=23.22&lon=33.33&addressdetails=1&format=json',
-        end_point=n.OSM_ENDPOINT)
-    assert postcode == '11375'
-    assert country == 'US'
-
-
-@patch('noaa_sdk.noaa.OSM.make_get_request')
-def test_osm_get_postalcode_country_by_lan_lon_failed(mock_make_get_request):
-    mock_make_get_request.return_value = {}
-    with pytest.raises(Exception) as err:
-        n = noaa.OSM()
-        n.get_postalcode_country_by_lan_lon(23.22, 33.33)
-        mock_make_get_request.assert_called_with(
-            '/reverse?lat=23.22&lon=33.33&addressdetails=1&format=json',
-            end_point=n.OSM_ENDPOINT)
-        assert err == 'No response from: {}'.format(n.OSM_ENDPOINT)
