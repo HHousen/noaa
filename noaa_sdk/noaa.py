@@ -183,7 +183,7 @@ class NOAA(UTIL):
         Returns:
             json: json response from api.
         """
-        assert data_type in ["hourly", "grid"]
+        assert data_type in ["hourly", "grid", None]
 
         points = self.make_get_request(
             "/points/{lat},{long}".format(
