@@ -8,6 +8,7 @@ visit: https://www.weather.gov/documentation/services-web-api
 """
 
 import json
+import math
 from urllib.parse import urlencode
 import pgeocode
 
@@ -41,6 +42,10 @@ class NOAA(UTIL):
     def get_lat_lon_by_postalcode_country(self, postal_code, country):
         nomi = pgeocode.Nominatim(country)
         query_results = nomi.query_postal_code(postal_code)
+
+        if math.isnan(query_results.latitude) or math.isnan(query_results.longitude):
+            raise ValueError('Invalid ZIP Code')
+
         return query_results.latitude, query_results.longitude
 
     def get_forecasts(self, postal_code, country, data_type="grid"):
