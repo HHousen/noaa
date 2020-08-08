@@ -2,3 +2,4 @@ pytest-cov==1.8.1
 pytest==2.7.3
 python-coveralls==2.4.3
 pgeocode==0.2.1
+uszipcode==0.2.4

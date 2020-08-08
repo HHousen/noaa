@@ -11,6 +11,7 @@ import json
 import math
 from urllib.parse import urlencode
 import pgeocode
+from uszipcode import SearchEngine
 
 from noaa_sdk.util import UTIL
 from noaa_sdk.accept import ACCEPT
@@ -39,14 +40,23 @@ class NOAA(UTIL):
             user_agent=user_agent, accept=accept,
             show_uri=show_uri)
 
-    def get_lat_lon_by_postalcode_country(self, postal_code, country):
-        nomi = pgeocode.Nominatim(country)
-        query_results = nomi.query_postal_code(postal_code)
+    def get_lat_lon_by_postalcode_country(self, postal_code, country='US'):
+        if country == "US":
+            search = SearchEngine(simple_zipcode=True)
+            zipcode = search.by_zipcode(postal_code)
 
-        if math.isnan(query_results.latitude) or math.isnan(query_results.longitude):
-            raise ValueError('Invalid ZIP Code')
+            if zipcode.lat is None or zipcode.lng is None:
+                raise ValueError('Invalid ZIP Code')
+            
+            return zipcode.lat, zipcode.lng
+        else:
+            nomi = pgeocode.Nominatim(country)
+            query_results = nomi.query_postal_code(postal_code)
 
-        return query_results.latitude, query_results.longitude
+            if math.isnan(query_results.latitude) or math.isnan(query_results.longitude):
+                raise ValueError('Invalid ZIP Code')
+
+            return query_results.latitude, query_results.longitude
 
     def get_forecasts(self, postal_code, country, data_type="grid"):
         """Get forecasts by postal code and country code.
