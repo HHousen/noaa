@@ -40,13 +40,16 @@ class NOAA(UTIL):
             user_agent=user_agent, accept=accept,
             show_uri=show_uri)
 
-    def get_lat_lon_by_postalcode_country(self, postal_code, country='US'):
+    def get_lat_lon_by_postalcode_country(self, postal_code, country='US', return_result_object=False):
         if country == "US":
             search = SearchEngine(simple_zipcode=True)
             zipcode = search.by_zipcode(postal_code)
 
             if zipcode.lat is None or zipcode.lng is None:
                 raise ValueError('Invalid ZIP Code')
+            
+            if return_result_object:
+                return zipcode.lat, zipcode.lng, zipcode
             
             return zipcode.lat, zipcode.lng
         else:
@@ -55,10 +58,13 @@ class NOAA(UTIL):
 
             if math.isnan(query_results.latitude) or math.isnan(query_results.longitude):
                 raise ValueError('Invalid ZIP Code')
+            
+            if return_result_object:
+                return query_results.latitude, query_results.longitude, query_results
 
             return query_results.latitude, query_results.longitude
 
-    def get_forecasts(self, postal_code, country, data_type="grid"):
+    def get_forecasts(self, postal_code, country, data_type="grid", return_result_object=False):
         """Get forecasts by postal code and country code.
 
         Args:
@@ -69,7 +75,13 @@ class NOAA(UTIL):
             list: list of weather forecasts.
         """
 
-        lat, lon = self.get_lat_lon_by_postalcode_country(postal_code, country)
+        postalcode_search_result = self.get_lat_lon_by_postalcode_country(postal_code, country, return_result_object)
+        
+        if return_result_object:
+            lat, lon, result_object = postalcode_search_result
+        else:
+            lat, lon = postalcode_search_result
+        
         res = self.points_forecast(lat, lon, data_type=data_type)
 
         if 'status' in res and res['status'] == 503 and 'detail' in res:
@@ -82,8 +94,12 @@ class NOAA(UTIL):
             raise Exception(
                 '"periods" attribute not found. Possible response json changes')
         if data_type == "grid":
+            if return_result_object:
+                return res['properties'], result_object
             return res['properties']
         else:
+            if return_result_object:
+                return res['properties']['periods'], result_object
             return res['properties']['periods']
 
     def get_observations(
