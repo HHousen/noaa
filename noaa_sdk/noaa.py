@@ -82,25 +82,30 @@ class NOAA(UTIL):
         else:
             lat, lon = postalcode_search_result
         
-        res = self.points_forecast(lat, lon, data_type=data_type)
+        if type(data_type) is not list:
+            data_type = [data_type]
+        
+        results = self.points_forecast(lat, lon, data_type=data_type)
 
-        if 'status' in res and res['status'] == 503 and 'detail' in res:
-            raise Exception('Status: {}, NOAA API Error Response: {}'.format(
-                res['status'], res['detail']))
-        elif 'properties' not in res:
-            raise Exception(
-                '"properties" attribute not found. Possible response json changes')
-        elif 'properties' in res and 'periods' not in res['properties'] and data_type != "grid":
-            raise Exception(
-                '"periods" attribute not found. Possible response json changes')
-        if data_type == "grid":
-            if return_result_object:
-                return res['properties'], result_object
-            return res['properties']
-        else:
-            if return_result_object:
-                return res['properties']['periods'], result_object
-            return res['properties']['periods']
+        to_return = []
+        for dtype, res in zip(data_type, results):
+            if 'status' in res and res['status'] == 503 and 'detail' in res:
+                raise Exception('Status: {}, NOAA API Error Response: {}'.format(
+                    res['status'], res['detail']))
+            elif 'properties' not in res:
+                raise Exception(
+                    '"properties" attribute not found. Possible response json changes')
+            elif 'properties' in res and 'periods' not in res['properties'] and dtype != "grid":
+                raise Exception(
+                    '"periods" attribute not found. Possible response json changes')
+            if dtype == "grid":
+                to_return.append(res['properties'])
+            else:
+                to_return.append(res['properties']['periods'])
+        
+        if return_result_object:
+            return to_return, result_object
+        return to_return
 
     def get_observations(
             self, postalcode, country, start=None, end=None, num_of_stations=1):
@@ -214,20 +219,27 @@ class NOAA(UTIL):
         Returns:
             json: json response from api.
         """
-        assert data_type in ["hourly", "grid", None]
+        if type(data_type) is not list:
+            data_type = [data_type]
+
+        for dtype in data_type:
+            assert dtype in ["hourly", "grid", None]
 
         points = self.make_get_request(
             "/points/{lat},{long}".format(
                 lat=lat, long=long), end_point=self.DEFAULT_END_POINT)
-        uri = points['properties']['forecast']
         
-        if data_type == "hourly":
-            uri = points['properties']['forecastHourly']
-        elif data_type == "grid":
-            uri = points['properties']['forecastGridData']
-
-        return self.make_get_request(
-            uri=uri, end_point=self.DEFAULT_END_POINT)
+        responses = []
+        for dtype in data_type:
+            uri = points['properties']['forecast']
+            if dtype == "hourly":
+                uri = points['properties']['forecastHourly']
+            elif dtype == "grid":
+                uri = points['properties']['forecastGridData']
+            response = self.make_get_request(uri=uri, end_point=self.DEFAULT_END_POINT)
+            responses.append(response)
+        
+        return responses
 
     def stations(self, **params):
         """Get list of US weather stations and their metadata.
