@@ -6,6 +6,7 @@ import time
 
 
 from noaa_sdk.accept import ACCEPT
+from noaa_sdk.errors import RetryTimeoutError
 
 
 class UTIL(object):
@@ -42,7 +43,12 @@ class UTIL(object):
 
                 while status_code == '' or (retry <= max_retries and (
                         status_code == '' or status_code != 200)):
-                    response = request(*args, **kargs)
+                    response, err = request(*args, **kargs)
+                    
+                    # If the response has a 200 status code then return it right away
+                    if hasattr(response, "status_code") and response.status_code == 200:
+                        return response
+                    
                     status_code = response.status_code
                     new_interval = fib_num_b + fib_num_a
                     fib_num_a = fib_num_b
@@ -51,9 +57,9 @@ class UTIL(object):
                     retry += 1
 
                 if retry > max_retries:
-                    raise Exception(
+                    raise RetryTimeoutError(
                         'Maximum retries exceeded. Response object dump: {}'.format(
-                            response))
+                            response)) from err
                 return response
 
             return wrapper
@@ -99,19 +105,20 @@ class UTIL(object):
             'accept': self._accept
         }
 
-    @_retry_request_decorator(10)
-    def _get(self, end_point, uri, header):
+    @_retry_request_decorator(3)
+    def _get(self, end_point, uri, header, timeout=5):
         response = None
         try:
             response = requests.get(
-                'https://{}/{}'.format(end_point, uri), headers=header)
+                'https://{}/{}'.format(end_point, uri), headers=header, timeout=timeout)
         except Exception as err:
             if self._show_uri:
                 print('Caught exception: {}'.format(str(err)))
             InstanceProperties = namedtuple(
                 'ResponseProperties', ['status_code'])
             response = InstanceProperties(status_code=500)
-        return response
+            return response, err
+        return response, None
 
     def make_get_request(self, uri, header=None, end_point=None):
         """Encapsulate code for GET request.

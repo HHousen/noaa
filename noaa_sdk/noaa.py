@@ -15,6 +15,7 @@ from uszipcode import SearchEngine
 
 from noaa_sdk.util import UTIL
 from noaa_sdk.accept import ACCEPT
+from noaa_sdk.errors import InvalidZipCodeError
 
 class NOAA(UTIL):
     """Main class for getting data from NOAA."""
@@ -46,7 +47,7 @@ class NOAA(UTIL):
             zipcode = search.by_zipcode(postal_code)
 
             if zipcode.lat is None or zipcode.lng is None:
-                raise ValueError('Invalid ZIP Code')
+                raise InvalidZipCodeError('Invalid ZIP Code')
             
             if return_result_object:
                 return zipcode.lat, zipcode.lng, zipcode
@@ -57,7 +58,7 @@ class NOAA(UTIL):
             query_results = nomi.query_postal_code(postal_code)
 
             if math.isnan(query_results.latitude) or math.isnan(query_results.longitude):
-                raise ValueError('Invalid ZIP Code')
+                raise InvalidZipCodeError('Invalid ZIP Code')
             
             if return_result_object:
                 return query_results.latitude, query_results.longitude, query_results
