@@ -41,9 +41,12 @@ class NOAA(UTIL):
             user_agent=user_agent, accept=accept,
             show_uri=show_uri)
 
-    def get_lat_lon_by_postalcode_country(self, postal_code, country='US', return_result_object=False):
+    def get_lat_lon_by_postalcode_country(self, postal_code, country='US', return_result_object=False, db_file_dir=None):
         if country == "US":
-            search = SearchEngine(simple_zipcode=True)
+            if db_file_dir:
+                search = SearchEngine(simple_zipcode=True, db_file_dir=db_file_dir)
+            else:
+                search = SearchEngine(simple_zipcode=True)
             zipcode = search.by_zipcode(postal_code)
 
             if zipcode.lat is None or zipcode.lng is None:
@@ -65,7 +68,7 @@ class NOAA(UTIL):
 
             return query_results.latitude, query_results.longitude
 
-    def get_forecasts(self, postal_code, country, data_type="grid", return_result_object=False):
+    def get_forecasts(self, postal_code, country, data_type="grid", return_result_object=False, db_file_dir=None):
         """Get forecasts by postal code and country code.
 
         Args:
@@ -76,7 +79,7 @@ class NOAA(UTIL):
             list: list of weather forecasts.
         """
 
-        postalcode_search_result = self.get_lat_lon_by_postalcode_country(postal_code, country, return_result_object)
+        postalcode_search_result = self.get_lat_lon_by_postalcode_country(postal_code, country, return_result_object, db_file_dir)
         
         if return_result_object:
             lat, lon, result_object = postalcode_search_result
