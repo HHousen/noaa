@@ -3,3 +3,6 @@ class RetryTimeoutError(Exception):
 
 class InvalidZipCodeError(Exception):
     pass
+
+class ServiceUnavilableError(Exception):
+    pass

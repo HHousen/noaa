@@ -6,7 +6,7 @@ import time
 
 
 from noaa_sdk.accept import ACCEPT
-from noaa_sdk.errors import RetryTimeoutError
+from noaa_sdk.errors import RetryTimeoutError, ServiceUnavilableError
 
 
 class UTIL(object):
@@ -46,8 +46,11 @@ class UTIL(object):
                     response, err = request(*args, **kargs)
                     
                     # If the response has a 200 status code then return it right away
-                    if hasattr(response, "status_code") and response.status_code == 200:
-                        return response
+                    if hasattr(response, "status_code")
+                        if response.status_code == 200:
+                            return response
+                        elif response.status_code == 503:
+                            raise ServiceUnavilableError("NOAA services are reportedly offline.")
                     
                     status_code = response.status_code
                     new_interval = fib_num_b + fib_num_a
