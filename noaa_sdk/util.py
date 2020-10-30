@@ -46,7 +46,7 @@ class UTIL(object):
                     response, err = request(*args, **kargs)
                     
                     # If the response has a 200 status code then return it right away
-                    if hasattr(response, "status_code")
+                    if hasattr(response, "status_code"):
                         if response.status_code == 200:
                             return response
                         elif response.status_code == 503:
